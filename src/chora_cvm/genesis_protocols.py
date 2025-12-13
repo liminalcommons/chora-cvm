@@ -865,7 +865,6 @@ def bootstrap_protocol_compost(store: EventStore, verbose: bool = True) -> str:
                         kind=ProtocolNodeKind.CALL,
                         ref="graph.entity.get",
                         inputs={
-                            "db_path": "$.inputs.db_path",
                             "entity_id": "$.inputs.entity_id",
                         },
                     ),
@@ -896,7 +895,6 @@ def bootstrap_protocol_compost(store: EventStore, verbose: bool = True) -> str:
                         kind=ProtocolNodeKind.CALL,
                         ref="graph.bond.manage",
                         inputs={
-                            "db_path": "$.inputs.db_path",
                             "bond_type": "crystallized-from",
                             "from_id": "$.node_create_learning.created[0]",
                             "to_id": "$.inputs.entity_id",
@@ -906,7 +904,6 @@ def bootstrap_protocol_compost(store: EventStore, verbose: bool = True) -> str:
                         kind=ProtocolNodeKind.CALL,
                         ref="graph.entity.update",
                         inputs={
-                            "db_path": "$.inputs.db_path",
                             "entity_id": "$.inputs.entity_id",
                             "updates": {"status": "composted"},
                         },
