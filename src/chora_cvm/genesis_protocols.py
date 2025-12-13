@@ -850,7 +850,6 @@ def bootstrap_protocol_compost(store: EventStore, verbose: bool = True) -> str:
         data=ProtocolData(
             interface=ProtocolInterface(
                 inputs={
-                    "db_path": {"type": "string"},
                     "entity_id": {"type": "string"},
                 },
                 outputs={
@@ -876,19 +875,22 @@ def bootstrap_protocol_compost(store: EventStore, verbose: bool = True) -> str:
                             "data": "$.node_get_entity.entity.data",
                         },
                     ),
+                    "node_gen_id": ProtocolNode(
+                        kind=ProtocolNodeKind.CALL,
+                        ref="sys.uuid.short",
+                        inputs={},
+                    ),
                     "node_create_learning": ProtocolNode(
                         kind=ProtocolNodeKind.CALL,
-                        ref="graph.entity.create_batch",
+                        ref="graph.entity.create",
                         inputs={
-                            "db_path": "$.inputs.db_path",
-                            "entities": [{
-                                "type": "learning",
-                                "data": {
-                                    "title": "Composted from $.inputs.entity_id",
-                                    "insight": "$.node_extract_text.text",
-                                    "domain": "composting",
-                                },
-                            }],
+                            "entity_type": "learning",
+                            "entity_id": "learning-composted-{$.node_gen_id.uuid}",
+                            "data": {
+                                "title": "Composted from {$.inputs.entity_id}",
+                                "insight": "$.node_extract_text.text",
+                                "domain": "composting",
+                            },
                         },
                     ),
                     "node_create_bond": ProtocolNode(
@@ -896,7 +898,7 @@ def bootstrap_protocol_compost(store: EventStore, verbose: bool = True) -> str:
                         ref="graph.bond.manage",
                         inputs={
                             "bond_type": "crystallized-from",
-                            "from_id": "$.node_create_learning.created[0]",
+                            "from_id": "$.node_create_learning.id",
                             "to_id": "$.inputs.entity_id",
                         },
                     ),
@@ -911,14 +913,15 @@ def bootstrap_protocol_compost(store: EventStore, verbose: bool = True) -> str:
                     "node_return": ProtocolNode(
                         kind=ProtocolNodeKind.RETURN,
                         outputs={
-                            "learning_id": "$.node_create_learning.created[0]",
+                            "learning_id": "$.node_create_learning.id",
                             "composted": True,
                         },
                     ),
                 },
                 edges=[
                     ProtocolEdge(**{"from": "node_get_entity", "to": "node_extract_text"}),
-                    ProtocolEdge(**{"from": "node_extract_text", "to": "node_create_learning"}),
+                    ProtocolEdge(**{"from": "node_extract_text", "to": "node_gen_id"}),
+                    ProtocolEdge(**{"from": "node_gen_id", "to": "node_create_learning"}),
                     ProtocolEdge(**{"from": "node_create_learning", "to": "node_create_bond"}),
                     ProtocolEdge(**{"from": "node_create_bond", "to": "node_update_status"}),
                     ProtocolEdge(**{"from": "node_update_status", "to": "node_return"}),
