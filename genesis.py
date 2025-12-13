@@ -46,11 +46,18 @@ from chora_cvm.genesis_provenance import bootstrap_implements_bonds
 
 def main(db_path: str = "chora-cvm.db", verbose: bool = True) -> dict:
     """
-    Bootstrap the complete Chora CVM genesis.
+    Bootstrap the complete Chora CVM genesis (IDEMPOTENT).
 
-    This orchestrator calls two bootstrap functions in sequence:
+    This orchestrator calls bootstrap functions in sequence:
     1. Crystal Palace domains (domain.* primitives)
     2. Protocols (protocol-* entities)
+    3. Behaviors (behavior-* entities)
+    4. Stories (story-* entities) with specifies bonds
+    5. Provenance (implements bonds)
+
+    IDEMPOTENCY: If genesis has already run (primitives exist), this is a no-op.
+    The litmus test: `just setup` three times in a row should be near-instant
+    on the second and third runs.
 
     Args:
         db_path: Path to the SQLite database
@@ -64,6 +71,21 @@ def main(db_path: str = "chora-cvm.db", verbose: bool = True) -> dict:
     if verbose:
         print(f"[*] Genesis: Bootstrapping Chora CVM in {db_path}")
         print("=" * 60)
+
+    # =========================================================================
+    # IDEMPOTENCY CHECK: Skip if already populated
+    # =========================================================================
+    # Check for primitives (the foundation of everything else)
+    cur = store._conn.cursor()
+    cur.execute("SELECT COUNT(*) as cnt FROM entities WHERE type = 'primitive'")
+    primitive_count = cur.fetchone()["cnt"]
+    if primitive_count >= 50:  # Crystal Palace has ~57 primitives
+        if verbose:
+            print(f"\n[✓] Genesis already complete: {primitive_count} primitives found")
+            print("    (Skipping - database is already populated)")
+            print("=" * 60)
+        store.close()
+        return {"status": "already_populated", "primitives": primitive_count}
 
     # =========================================================================
     # PHASE 1: CRYSTAL PALACE (domain.* primitives)

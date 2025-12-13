@@ -102,35 +102,7 @@ class ProtocolVM:
             if not ref:
                 return self._stress_state(state, "config_error", f"Node {cursor} missing ref"), None
 
-            # Primitive call
-            if ref.startswith("primitive-"):
-                primitive = self._primitives.get(ref)
-                if primitive.handler is None:
-                    return self._stress_state(state, "primitive_error", f"Primitive {ref} not found"), None
-
-                try:
-                    handler_kwargs = self._map_inputs(node.inputs, state.data.memory)
-                except Exception as exc:
-                    return self._stress_state(state, "mapping_error", str(exc)), None
-
-                # Inject execution context if available and handler accepts it
-                if self._context and primitive.handler:
-                    sig = inspect.signature(primitive.handler)
-                    if "_ctx" in sig.parameters or any(
-                        p.kind == inspect.Parameter.VAR_KEYWORD
-                        for p in sig.parameters.values()
-                    ):
-                        handler_kwargs["_ctx"] = self._context
-
-                try:
-                    result = primitive.handler(**handler_kwargs)
-                except Exception as exc:
-                    return self._stress_state(state, "runtime_error", str(exc)), None
-
-                state.data.memory[cursor] = result
-                return self._advance_cursor(graph, state, cursor), None
-
-            # Protocol call (recursion)
+            # Protocol call (recursion) - check first since protocol refs are more specific
             if ref.startswith("protocol-"):
                 if not self._loader:
                     return self._stress_state(state, "config_error", "No protocol loader configured"), None
@@ -149,7 +121,32 @@ class ProtocolVM:
                 state.status = StateStatus.SUSPENDED
                 return state, child_state
 
-            return self._stress_state(state, "config_error", f"Unknown ref type: {ref}"), None
+            # Primitive call (supports both legacy "primitive-*" and Crystal Palace "domain.noun.verb")
+            primitive = self._primitives.get(ref)
+            if primitive is None or primitive.handler is None:
+                return self._stress_state(state, "primitive_error", f"Primitive {ref} not found"), None
+
+            try:
+                handler_kwargs = self._map_inputs(node.inputs, state.data.memory)
+            except Exception as exc:
+                return self._stress_state(state, "mapping_error", str(exc)), None
+
+            # Inject execution context if available and handler accepts it
+            if self._context and primitive.handler:
+                sig = inspect.signature(primitive.handler)
+                if "_ctx" in sig.parameters or any(
+                    p.kind == inspect.Parameter.VAR_KEYWORD
+                    for p in sig.parameters.values()
+                ):
+                    handler_kwargs["_ctx"] = self._context
+
+            try:
+                result = primitive.handler(**handler_kwargs)
+            except Exception as exc:
+                return self._stress_state(state, "runtime_error", str(exc)), None
+
+            state.data.memory[cursor] = result
+            return self._advance_cursor(graph, state, cursor), None
 
         if node.kind == ProtocolNodeKind.RETURN:
             state.status = StateStatus.FULFILLED

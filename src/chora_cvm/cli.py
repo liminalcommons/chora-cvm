@@ -191,8 +191,7 @@ def cmd_capabilities(args: argparse.Namespace) -> int:
     print()
     print(f"  Primitives ({len(primitives)}):")
     for p in sorted(primitives, key=lambda x: x.id)[:20]:  # Show first 20
-        short = p.id[10:] if p.id.startswith("primitive-") else p.id
-        print(f"    {short:30} {p.description[:40]}")
+        print(f"    {p.id:30} {p.description[:40]}")
 
     if len(primitives) > 20:
         print(f"    ... and {len(primitives) - 20} more")
@@ -2278,7 +2277,7 @@ def cmd_harvest_setup(args: argparse.Namespace) -> int:
     store = EventStore(db_path)
     registry = PrimitiveRegistry()
 
-    for prim_id in ("primitive-sys-log", "primitive-manifest-entity"):
+    for prim_id in ("io.sys.log", "graph.entity.create"):
         entity = store.load_entity(prim_id, PrimitiveEntity)
         if entity:
             registry.register_from_entity(entity)
@@ -2289,11 +2288,11 @@ def cmd_harvest_setup(args: argparse.Namespace) -> int:
         store.close()
         return 1
 
-    print("    -> Manifesting primitive-sqlite-query...")
+    print("    -> Manifesting graph.query.sql...")
     sqlite_prim_inputs = {
         "db_path": db_path,
         "entity_type": "primitive",
-        "entity_id": "primitive-sqlite-query",
+        "entity_id": "graph.query.sql",
         "data": {
             "python_ref": "chora_cvm.std.sqlite_query",
             "description": "Execute read-only SQL query",
@@ -2307,11 +2306,11 @@ def cmd_harvest_setup(args: argparse.Namespace) -> int:
     }
     _run_manifest(store, registry, protocol_manifest, sqlite_prim_inputs)
 
-    print("    -> Manifesting primitive-json-parse...")
+    print("    -> Manifesting logic.json.parse...")
     json_parse_inputs = {
         "db_path": db_path,
         "entity_type": "primitive",
-        "entity_id": "primitive-json-parse",
+        "entity_id": "logic.json.parse",
         "data": {
             "python_ref": "chora_cvm.std.json_parse",
             "description": "Parse JSON string into structured data",
@@ -2325,7 +2324,7 @@ def cmd_harvest_setup(args: argparse.Namespace) -> int:
     _run_manifest(store, registry, protocol_manifest, json_parse_inputs)
 
     print("    -> Registering new primitives into registry...")
-    for prim_id in ("primitive-sqlite-query", "primitive-json-parse"):
+    for prim_id in ("graph.query.sql", "logic.json.parse"):
         entity = store.load_entity(prim_id, PrimitiveEntity)
         if entity:
             registry.register_from_entity(entity)
@@ -2344,11 +2343,11 @@ def cmd_harvest_setup(args: argparse.Namespace) -> int:
             "graph": {
                 "start": "node_read",
                 "nodes": {
-                    "node_read": {"kind": "call", "ref": "primitive-sqlite-query",
+                    "node_read": {"kind": "call", "ref": "graph.query.sql",
                                   "inputs": {"db_path": "$.inputs.legacy_db",
                                              "sql": "SELECT * FROM entities WHERE id = ?",
                                              "params": "$.inputs.pattern_id"}},
-                    "node_parse": {"kind": "call", "ref": "primitive-json-parse",
+                    "node_parse": {"kind": "call", "ref": "logic.json.parse",
                                    "inputs": {"json_str": "$.node_read.rows.0.data"}},
                     "node_write": {"kind": "call", "ref": "protocol-manifest-entity",
                                    "inputs": {"db_path": "$.inputs.target_db", "entity_type": "pattern",
@@ -2395,8 +2394,8 @@ def cmd_harvest_pattern(args: argparse.Namespace) -> int:
     store = EventStore(db_path)
     registry = PrimitiveRegistry()
 
-    primitives = ["primitive-sys-log", "primitive-manifest-entity",
-                  "primitive-sqlite-query", "primitive-json-parse"]
+    primitives = ["io.sys.log", "graph.entity.create",
+                  "graph.query.sql", "logic.json.parse"]
 
     for pid in primitives:
         entity = store.load_entity(pid, PrimitiveEntity)
@@ -2515,18 +2514,24 @@ def cmd_orient(args: argparse.Namespace) -> int:
     store = EventStore(db_path)
     registry = PrimitiveRegistry()
 
-    for prim_id in ("primitive-sqlite-query",):
+    # Load all primitives needed by protocol-orient
+    required_primitives = (
+        "graph.query.count_by_type",
+        "graph.query.json",
+        "graph.query.recent",
+    )
+    for prim_id in required_primitives:
         entity = store.load_entity(prim_id, PrimitiveEntity)
         if entity:
             registry.register_from_entity(entity)
         else:
-            print(f"✗ Missing primitive: {prim_id}. Run cvm harvest setup first.", file=sys.stderr)
+            print(f"✗ Missing primitive: {prim_id}. Run genesis first.", file=sys.stderr)
             store.close()
             return 1
 
-    protocol = store.load_entity("protocol-orient-vnext", ProtocolEntity)
+    protocol = store.load_entity("protocol-orient", ProtocolEntity)
     if protocol is None:
-        print("✗ protocol-orient-vnext not found. Run orient setup first.", file=sys.stderr)
+        print("✗ protocol-orient not found. Run genesis first.", file=sys.stderr)
         store.close()
         return 1
 
@@ -2622,9 +2627,9 @@ def cmd_teach(args: argparse.Namespace) -> int:
 
     # Register primitives needed by protocol-teach-me
     for prim_id in (
-        "primitive-sys-log",
-        "primitive-entity-doc-bundle",
-        "primitive-teach-format",
+        "io.sys.log",
+        "graph.entity.doc_bundle",
+        "io.teach.format",
     ):
         entity = store.load_entity(prim_id, PrimitiveEntity)
         if entity:
@@ -2693,7 +2698,7 @@ def cmd_circle_orient(args: argparse.Namespace) -> int:
     registry = PrimitiveRegistry()
 
     # Hydrate primitives used by protocol-circle-orient
-    for prim_id in ("primitive-sys-log", "primitive-entities-query"):
+    for prim_id in ("io.sys.log", "graph.query.json"):
         entity = store.load_entity(prim_id, PrimitiveEntity)
         if entity:
             registry.register_from_entity(entity)
@@ -2778,7 +2783,7 @@ def cmd_manifest_circle(args: argparse.Namespace) -> int:
     store = EventStore(db_path)
     registry = PrimitiveRegistry()
 
-    for prim_id in ("primitive-sys-log", "primitive-manifest-entity"):
+    for prim_id in ("io.sys.log", "graph.entity.create"):
         entity = store.load_entity(prim_id, PrimitiveEntity)
         if entity:
             registry.register_from_entity(entity)
@@ -2930,7 +2935,7 @@ def cmd_bootstrap_circle_orient(args: argparse.Namespace) -> int:
     store = EventStore(db_path)
     registry = PrimitiveRegistry()
 
-    for prim_id in ("primitive-sys-log", "primitive-manifest-entity", "primitive-entities-query"):
+    for prim_id in ("io.sys.log", "graph.entity.create", "graph.query.json"):
         entity = store.load_entity(prim_id, PrimitiveEntity)
         if entity:
             registry.register_from_entity(entity)
@@ -2952,8 +2957,8 @@ def cmd_bootstrap_circle_orient(args: argparse.Namespace) -> int:
             "graph": {
                 "start": "node_assets",
                 "nodes": {
-                    "node_assets": {"kind": "call", "ref": "primitive-entities-query", "inputs": {"db_path": "$.inputs.db_path", "entity_type": "asset", "circle_id": "$.inputs.circle_id", "limit": "$.inputs.limit"}},
-                    "node_tools": {"kind": "call", "ref": "primitive-entities-query", "inputs": {"db_path": "$.inputs.db_path", "entity_type": "tool", "limit": "$.inputs.limit"}},
+                    "node_assets": {"kind": "call", "ref": "graph.query.json", "inputs": {"db_path": "$.inputs.db_path", "entity_type": "asset", "circle_id": "$.inputs.circle_id", "limit": "$.inputs.limit"}},
+                    "node_tools": {"kind": "call", "ref": "graph.query.json", "inputs": {"db_path": "$.inputs.db_path", "entity_type": "tool", "limit": "$.inputs.limit"}},
                     "node_return": {"kind": "return", "outputs": {"assets": "$.node_assets.rows", "tools": "$.node_tools.rows"}},
                 },
                 "edges": [{"from": "node_assets", "to": "node_tools", "default": True}, {"from": "node_tools", "to": "node_return", "default": True}],
@@ -3001,10 +3006,10 @@ def cmd_semantic_setup(args: argparse.Namespace) -> int:
 
     # Register semantic primitives
     primitives = [
-        ("primitive-embed-entity", "chora_cvm.semantic.embed_entity", "Compute and store embedding for an entity"),
-        ("primitive-suggest-bonds", "chora_cvm.semantic.suggest_bonds", "Suggest potential bonds for an entity"),
-        ("primitive-semantic-search", "chora_cvm.semantic.semantic_search", "Search entities by semantic similarity"),
-        ("primitive-detect-clusters", "chora_cvm.semantic.detect_clusters", "Detect clusters of similar entities"),
+        ("cognition.embed.entity", "chora_cvm.semantic.embed_entity", "Compute and store embedding for an entity"),
+        ("graph.bond.suggest", "chora_cvm.semantic.suggest_bonds", "Suggest potential bonds for an entity"),
+        ("cognition.search.semantic", "chora_cvm.semantic.semantic_search", "Search entities by semantic similarity"),
+        ("cognition.cluster.detect", "chora_cvm.semantic.detect_clusters", "Detect clusters of similar entities"),
     ]
 
     print("\n[1] Registering semantic primitives...")
@@ -3028,9 +3033,9 @@ def cmd_semantic_setup(args: argparse.Namespace) -> int:
             graph=ProtocolGraph(
                 start="node_manifest",
                 nodes={
-                    "node_manifest": ProtocolNode(kind=ProtocolNodeKind.CALL, ref="primitive-manifest-entity", inputs={"db_path": "$.inputs.db_path", "entity_type": "$.inputs.entity_type", "entity_id": "$.inputs.entity_id", "data": "$.inputs.data"}),
-                    "node_embed": ProtocolNode(kind=ProtocolNodeKind.CALL, ref="primitive-embed-entity", inputs={"db_path": "$.inputs.db_path", "entity_id": "$.inputs.entity_id"}),
-                    "node_suggest": ProtocolNode(kind=ProtocolNodeKind.CALL, ref="primitive-suggest-bonds", inputs={"db_path": "$.inputs.db_path", "entity_id": "$.inputs.entity_id", "limit": 5}),
+                    "node_manifest": ProtocolNode(kind=ProtocolNodeKind.CALL, ref="graph.entity.create", inputs={"db_path": "$.inputs.db_path", "entity_type": "$.inputs.entity_type", "entity_id": "$.inputs.entity_id", "data": "$.inputs.data"}),
+                    "node_embed": ProtocolNode(kind=ProtocolNodeKind.CALL, ref="cognition.embed.entity", inputs={"db_path": "$.inputs.db_path", "entity_id": "$.inputs.entity_id"}),
+                    "node_suggest": ProtocolNode(kind=ProtocolNodeKind.CALL, ref="graph.bond.suggest", inputs={"db_path": "$.inputs.db_path", "entity_id": "$.inputs.entity_id", "limit": 5}),
                     "node_return": ProtocolNode(kind=ProtocolNodeKind.RETURN, outputs={"id": "$.node_manifest.id", "type": "$.node_manifest.type", "suggestions": "$.node_suggest.candidates"}),
                 },
                 edges=[ProtocolEdge(**{"from": "node_manifest", "to": "node_embed"}), ProtocolEdge(**{"from": "node_embed", "to": "node_suggest"}), ProtocolEdge(**{"from": "node_suggest", "to": "node_return"})],
@@ -3051,7 +3056,7 @@ def cmd_semantic_setup(args: argparse.Namespace) -> int:
             graph=ProtocolGraph(
                 start="node_search",
                 nodes={
-                    "node_search": ProtocolNode(kind=ProtocolNodeKind.CALL, ref="primitive-semantic-search", inputs={"db_path": "$.inputs.db_path", "query": "$.inputs.query", "entity_type": "$.inputs.entity_type", "limit": "$.inputs.limit"}),
+                    "node_search": ProtocolNode(kind=ProtocolNodeKind.CALL, ref="cognition.search.semantic", inputs={"db_path": "$.inputs.db_path", "query": "$.inputs.query", "entity_type": "$.inputs.entity_type", "limit": "$.inputs.limit"}),
                     "node_return": ProtocolNode(kind=ProtocolNodeKind.RETURN, outputs={"results": "$.node_search.results", "method": "$.node_search.method"}),
                 },
                 edges=[ProtocolEdge(**{"from": "node_search", "to": "node_return"})],
@@ -3084,7 +3089,7 @@ def cmd_docs_setup(args: argparse.Namespace) -> int:
     store = EventStore(db_path)
     registry = PrimitiveRegistry()
 
-    for prim_id in ("primitive-sys-log", "primitive-manifest-entity"):
+    for prim_id in ("io.sys.log", "graph.entity.create"):
         entity = store.load_entity(prim_id, PrimitiveEntity)
         if entity:
             registry.register_from_entity(entity)
@@ -3107,8 +3112,8 @@ def cmd_docs_setup(args: argparse.Namespace) -> int:
 
     # Manifest teach primitives
     teach_primitives = [
-        {"id": "primitive-entity-doc-bundle", "python_ref": "chora_cvm.std.entity_doc_bundle", "description": "Load entity and linked Diataxis docs."},
-        {"id": "primitive-teach-format", "python_ref": "chora_cvm.std.teach_format", "description": "Format Diataxis explanation from doc bundle."},
+        {"id": "graph.entity.doc_bundle", "python_ref": "chora_cvm.std.entity_doc_bundle", "description": "Load entity and linked Diataxis docs."},
+        {"id": "io.teach.format", "python_ref": "chora_cvm.std.teach_format", "description": "Format Diataxis explanation from doc bundle."},
     ]
 
     for prim in teach_primitives:
@@ -3127,8 +3132,8 @@ def cmd_docs_setup(args: argparse.Namespace) -> int:
             "graph": {
                 "start": "node_bundle",
                 "nodes": {
-                    "node_bundle": {"kind": "call", "ref": "primitive-entity-doc-bundle", "inputs": {"db_path": "$.inputs.db_path", "entity_id": "$.inputs.entity_id"}},
-                    "node_format": {"kind": "call", "ref": "primitive-teach-format", "inputs": {"bundle": "$.node_bundle"}},
+                    "node_bundle": {"kind": "call", "ref": "graph.entity.doc_bundle", "inputs": {"db_path": "$.inputs.db_path", "entity_id": "$.inputs.entity_id"}},
+                    "node_format": {"kind": "call", "ref": "io.teach.format", "inputs": {"bundle": "$.node_bundle"}},
                     "node_return": {"kind": "return", "outputs": {"text": "$.node_format.text"}},
                 },
                 "edges": [{"from": "node_bundle", "to": "node_format", "default": True}, {"from": "node_format", "to": "node_return", "default": True}],
@@ -3234,7 +3239,7 @@ def cmd_docs_core(args: argparse.Namespace) -> int:
     store = EventStore(db_path)
     registry = PrimitiveRegistry()
 
-    for prim_id in ("primitive-sys-log", "primitive-manifest-entity"):
+    for prim_id in ("io.sys.log", "graph.entity.create"):
         entity = store.load_entity(prim_id, PrimitiveEntity)
         if entity:
             registry.register_from_entity(entity)

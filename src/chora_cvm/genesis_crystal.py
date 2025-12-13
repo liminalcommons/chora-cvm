@@ -584,6 +584,32 @@ def bootstrap_io_primitives(store: EventStore) -> list[str]:
     store.save_entity(prim)
     created.append(prim.id)
 
+    # io.teach.format - Format Diataxis-style documentation
+    prim = PrimitiveEntity(
+        id="io.teach.format",
+        data=PrimitiveData(
+            python_ref="chora_cvm.std.teach_format",
+            description="Format Diataxis-style explanation from entity doc bundle",
+            interface={
+                "inputs": {
+                    "type": "object",
+                    "properties": {
+                        "bundle": {"type": "object"},
+                    },
+                    "required": ["bundle"],
+                },
+                "outputs": {
+                    "type": "object",
+                    "properties": {
+                        "text": {"type": "string"},
+                    },
+                },
+            },
+        ),
+    )
+    store.save_entity(prim)
+    created.append(prim.id)
+
     return created
 
 
@@ -954,6 +980,32 @@ def bootstrap_logic_primitives(store: EventStore) -> list[str]:
                     "type": "object",
                     "properties": {
                         "result": {"type": "string"},
+                    },
+                },
+            },
+        ),
+    )
+    store.save_entity(prim)
+    created.append(prim.id)
+
+    # logic.json.parse - Parse JSON string (Crystal Palace replacement for primitive-json-parse)
+    prim = PrimitiveEntity(
+        id="logic.json.parse",
+        data=PrimitiveData(
+            python_ref="chora_cvm.std.json_parse",
+            description="Parse JSON string into structured data",
+            interface={
+                "inputs": {
+                    "type": "object",
+                    "properties": {
+                        "json_str": {"type": "string"},
+                    },
+                    "required": ["json_str"],
+                },
+                "outputs": {
+                    "type": "object",
+                    "properties": {
+                        "data": {"type": "object"},
                     },
                 },
             },
@@ -1846,6 +1898,64 @@ def bootstrap_graph_primitives(store: EventStore) -> list[str]:
                     "properties": {
                         "created": {"type": "integer"},
                         "errors": {"type": "array"},
+                    },
+                },
+            },
+        ),
+    )
+    store.save_entity(prim)
+    created.append(prim.id)
+
+    # graph.query.sql - Raw SQL query (Crystal Palace replacement for primitive-sqlite-query)
+    prim = PrimitiveEntity(
+        id="graph.query.sql",
+        data=PrimitiveData(
+            python_ref="chora_cvm.std.sqlite_query",
+            description="Execute read-only SQL query on the database",
+            interface={
+                "inputs": {
+                    "type": "object",
+                    "properties": {
+                        "db_path": {"type": "string"},
+                        "sql": {"type": "string"},
+                        "params": {"type": "object"},
+                    },
+                    "required": ["db_path", "sql"],
+                },
+                "outputs": {
+                    "type": "object",
+                    "properties": {
+                        "rows": {"type": "array"},
+                    },
+                },
+            },
+        ),
+    )
+    store.save_entity(prim)
+    created.append(prim.id)
+
+    # graph.entity.doc_bundle - Load entity with linked Diataxis docs
+    prim = PrimitiveEntity(
+        id="graph.entity.doc_bundle",
+        data=PrimitiveData(
+            python_ref="chora_cvm.std.entity_doc_bundle",
+            description="Load entity and linked Diataxis documentation (story, pattern, principle)",
+            interface={
+                "inputs": {
+                    "type": "object",
+                    "properties": {
+                        "db_path": {"type": "string"},
+                        "entity_id": {"type": "string"},
+                    },
+                    "required": ["db_path", "entity_id"],
+                },
+                "outputs": {
+                    "type": "object",
+                    "properties": {
+                        "entity": {"type": "object"},
+                        "story": {"type": "object"},
+                        "pattern": {"type": "object"},
+                        "principle": {"type": "object"},
                     },
                 },
             },

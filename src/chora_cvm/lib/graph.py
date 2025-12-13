@@ -511,3 +511,79 @@ def query(
     finally:
         if should_close:
             store.close()
+
+
+# =============================================================================
+# Database Sensing
+# =============================================================================
+
+
+def db_sense(
+    _ctx: ExecutionContext,
+) -> Dict[str, Any]:
+    """
+    Primitive: graph.db.sense
+
+    Sense database health for orientation on arrival.
+
+    Returns a structured summary of database state including entity counts
+    by type, bond statistics, and temporal information.
+
+    Args:
+        _ctx: Execution context (MANDATORY in lib/)
+
+    Returns:
+        {
+            "entity_counts": {"learning": 5, "tool": 10, ...},
+            "total_bonds": 42,
+            "orphan_bonds": 2,
+            "last_modified": "2025-01-01T12:00:00"
+        }
+    """
+    conn = sqlite3.connect(_ctx.db_path)
+    conn.row_factory = sqlite3.Row
+
+    try:
+        # Entity counts by type
+        entity_counts: Dict[str, int] = {}
+        cur = conn.execute("SELECT type, COUNT(*) as cnt FROM entities GROUP BY type")
+        for row in cur.fetchall():
+            entity_counts[row["type"]] = row["cnt"]
+
+        # Total bonds
+        cur = conn.execute("SELECT COUNT(*) as cnt FROM bonds")
+        total_bonds = cur.fetchone()["cnt"]
+
+        # Orphan bonds (bonds where from_id or to_id doesn't exist in entities)
+        cur = conn.execute("""
+            SELECT COUNT(*) as cnt FROM bonds b
+            WHERE NOT EXISTS (SELECT 1 FROM entities e WHERE e.id = b.from_id)
+               OR NOT EXISTS (SELECT 1 FROM entities e WHERE e.id = b.to_id)
+        """)
+        orphan_bonds = cur.fetchone()["cnt"]
+
+        # Last modified (most recent entity update)
+        cur = conn.execute("""
+            SELECT MAX(json_extract(data_json, '$.updated_at')) as last_mod
+            FROM entities
+        """)
+        row = cur.fetchone()
+        last_modified = row["last_mod"] if row and row["last_mod"] else None
+
+        # Fallback: if no updated_at, try to get from max rowid timestamp
+        if last_modified is None:
+            cur = conn.execute("SELECT MAX(rowid) as max_id FROM entities")
+            row = cur.fetchone()
+            if row and row["max_id"]:
+                # Use current timestamp as proxy
+                from datetime import datetime
+                last_modified = datetime.now().isoformat()
+
+        return {
+            "entity_counts": entity_counts,
+            "total_bonds": total_bonds,
+            "orphan_bonds": orphan_bonds,
+            "last_modified": last_modified,
+        }
+    finally:
+        conn.close()
