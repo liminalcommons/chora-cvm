@@ -57,4 +57,3 @@ class PrimitiveRegistry:
 
     def get(self, primitive_id: str) -> PrimitiveRecord:
         return self._registry[primitive_id]
-

@@ -11,6 +11,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!src/chora_cvm/lib/
 lib64/
 parts/
 sdist/

@@ -102,7 +102,7 @@ def resolve_db_path(explicit: Optional[str]) -> str:
     if env_db:
         return env_db
 
-    return str(Path.cwd() / "chora-cvm.db")
+    return str(Path.cwd() / "chora-cvm-manifest.db")
 
 
 # =============================================================================
@@ -2511,28 +2511,22 @@ def cmd_orient(args: argparse.Namespace) -> int:
         print(f"✗ Database not found: {db_path}", file=sys.stderr)
         return 1
 
-    print(f"[*] Booting CVM for Orient using {db_path}...")
+    print(f"[*] Booting CVM for Orient vNext using {db_path}...")
     store = EventStore(db_path)
     registry = PrimitiveRegistry()
 
-    # Crystal Palace primitives needed for protocol-orient
-    required_primitives = (
-        "graph.query.count_by_type",
-        "graph.query.json",
-        "graph.query.recent",
-    )
-    for prim_id in required_primitives:
+    for prim_id in ("primitive-sqlite-query",):
         entity = store.load_entity(prim_id, PrimitiveEntity)
         if entity:
             registry.register_from_entity(entity)
         else:
-            print(f"✗ Missing primitive: {prim_id}. Crystal Palace not bootstrapped.", file=sys.stderr)
+            print(f"✗ Missing primitive: {prim_id}. Run cvm harvest setup first.", file=sys.stderr)
             store.close()
             return 1
 
-    protocol = store.load_entity("protocol-orient", ProtocolEntity)
+    protocol = store.load_entity("protocol-orient-vnext", ProtocolEntity)
     if protocol is None:
-        print("✗ protocol-orient not found. Crystal Palace not bootstrapped.", file=sys.stderr)
+        print("✗ protocol-orient-vnext not found. Run orient setup first.", file=sys.stderr)
         store.close()
         return 1
 

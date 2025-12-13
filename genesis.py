@@ -29,11 +29,6 @@ This orchestrator coordinates bootstrapping across four domains:
 Usage:
     python genesis.py [db_path]
     # Default: chora-cvm.db
-
-Idempotency:
-    This script is safe to run multiple times. If the database already
-    contains genesis entities (detected via sentinel check), it will
-    skip with a message rather than re-creating entities.
 """
 
 from __future__ import annotations
@@ -48,48 +43,23 @@ from chora_cvm.genesis_behaviors import bootstrap_behaviors
 from chora_cvm.genesis_stories import bootstrap_stories, bootstrap_specifies_bonds
 from chora_cvm.genesis_provenance import bootstrap_implements_bonds
 
-# Sentinel entity: if this exists, genesis has already run
-GENESIS_SENTINEL = "graph.entity.create"
 
-
-def is_genesis_complete(store: EventStore) -> bool:
-    """Check if genesis has already been run by looking for sentinel entity."""
-    entity = store.get_entity(GENESIS_SENTINEL)
-    return entity is not None
-
-
-def main(db_path: str = "chora-cvm.db", verbose: bool = True, force: bool = False) -> dict:
+def main(db_path: str = "chora-cvm.db", verbose: bool = True) -> dict:
     """
     Bootstrap the complete Chora CVM genesis.
 
-    This orchestrator calls bootstrap functions in sequence:
+    This orchestrator calls two bootstrap functions in sequence:
     1. Crystal Palace domains (domain.* primitives)
     2. Protocols (protocol-* entities)
-    3. Behaviors (expectations from feature files)
-    4. Stories (desires with specifies bonds)
-    5. Provenance (implements bonds)
 
     Args:
         db_path: Path to the SQLite database
         verbose: Print progress messages
-        force: If True, run genesis even if already complete
 
     Returns:
-        Summary dict with counts and IDs of created entities.
-        If genesis was skipped (already complete), returns {"skipped": True}.
+        Summary dict with counts and IDs of created entities
     """
     store = EventStore(db_path)
-
-    # =========================================================================
-    # IDEMPOTENCY CHECK: Skip if genesis has already run
-    # =========================================================================
-    if not force and is_genesis_complete(store):
-        if verbose:
-            print(f"[*] Genesis: Already complete in {db_path}")
-            print("    (Sentinel entity '{0}' exists)".format(GENESIS_SENTINEL))
-            print("    To force re-run, use: python genesis.py {0} --force".format(db_path))
-        store.close()
-        return {"skipped": True, "db_path": db_path}
 
     if verbose:
         print(f"[*] Genesis: Bootstrapping Chora CVM in {db_path}")
@@ -177,27 +147,5 @@ def main(db_path: str = "chora-cvm.db", verbose: bool = True, force: bool = Fals
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Bootstrap Chora CVM genesis (idempotent)"
-    )
-    parser.add_argument(
-        "db_path",
-        nargs="?",
-        default="chora-cvm.db",
-        help="Path to SQLite database (default: chora-cvm.db)",
-    )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Force re-run even if genesis already complete",
-    )
-    parser.add_argument(
-        "--quiet",
-        action="store_true",
-        help="Suppress progress messages",
-    )
-
-    args = parser.parse_args()
-    main(args.db_path, verbose=not args.quiet, force=args.force)
+    db_arg = sys.argv[1] if len(sys.argv) > 1 else "chora-cvm.db"
+    main(db_arg)

@@ -1854,34 +1854,6 @@ def bootstrap_graph_primitives(store: EventStore) -> list[str]:
     store.save_entity(prim)
     created.append(prim.id)
 
-    # graph.db.sense
-    prim = PrimitiveEntity(
-        id="graph.db.sense",
-        data=PrimitiveData(
-            python_ref="chora_cvm.lib.graph.db_sense",
-            description="Sense database health and state for orientation on arrival",
-            interface={
-                "inputs": {
-                    "type": "object",
-                    "properties": {},
-                },
-                "outputs": {
-                    "type": "object",
-                    "properties": {
-                        "status": {"type": "string"},
-                        "entity_counts": {"type": "object"},
-                        "total_entities": {"type": "integer"},
-                        "total_bonds": {"type": "integer"},
-                        "orphan_bonds": {"type": "integer"},
-                        "last_modified": {"type": "string"},
-                    },
-                },
-            },
-        ),
-    )
-    store.save_entity(prim)
-    created.append(prim.id)
-
     return created
 
 

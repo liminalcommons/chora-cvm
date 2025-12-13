@@ -102,11 +102,11 @@ class ProtocolVM:
             if not ref:
                 return self._stress_state(state, "config_error", f"Node {cursor} missing ref"), None
 
-            # Primitive call - check registry (supports both Crystal Palace and legacy naming)
-            primitive = self._primitives.get(ref)
-            if primitive is not None:
+            # Primitive call
+            if ref.startswith("primitive-"):
+                primitive = self._primitives.get(ref)
                 if primitive.handler is None:
-                    return self._stress_state(state, "primitive_error", f"Primitive {ref} not loaded"), None
+                    return self._stress_state(state, "primitive_error", f"Primitive {ref} not found"), None
 
                 try:
                     handler_kwargs = self._map_inputs(node.inputs, state.data.memory)

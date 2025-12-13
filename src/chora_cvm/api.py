@@ -25,7 +25,7 @@ from .std import create_focus, emit_signal, entities_query, fts_search, manifest
 
 # --- Configuration ---
 
-DEFAULT_DB_PATH = os.environ.get("CHORA_DB", "chora-cvm.db")
+DEFAULT_DB_PATH = os.environ.get("CHORA_DB", "chora-cvm-manifest.db")
 
 # --- Pydantic Models ---
 

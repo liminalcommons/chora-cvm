@@ -10,4 +10,3 @@ Chora vNext DNA (Schema Specification v3.0):
 
 The kernel is intentionally minimal and defers all domain semantics to the
 entity graph stored in the database.
-

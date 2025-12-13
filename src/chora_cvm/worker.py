@@ -45,7 +45,7 @@ def get_worker_db_path() -> str:
 
 def get_loom_db_path() -> str:
     """Get the path to the main Loom database."""
-    return os.environ.get("CHORA_DB", str(Path.cwd() / "chora-cvm.db"))
+    return os.environ.get("CHORA_DB", str(Path.cwd() / "chora-cvm-manifest.db"))
 
 
 # Lazy Huey initialization (resolved at runtime, not import time)
